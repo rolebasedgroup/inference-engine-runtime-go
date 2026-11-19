@@ -1,0 +1,36 @@
+# Minimal RBAC for the experimental RoleInstance lifecycle-hook source in
+# label-file mode (--label-file): the runtime never watches the API server,
+# so only get and patch are needed. Native RBAC cannot restrict PATCH to
+# specific label fields; keep resourceNames aligned with the single
+# RoleInstance this runtime is responsible for. Without --label-file the
+# informer additionally needs "list" and "watch".
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: patio-runtime
+  namespace: REPLACE_ME
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: patio-runtime-roleinstance
+  namespace: REPLACE_ME
+rules:
+  - apiGroups: ["workloads.x-k8s.io"]
+    resources: ["roleinstances"]
+    resourceNames: ["REPLACE_ME_RI_NAME"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: patio-runtime-roleinstance
+  namespace: REPLACE_ME
+subjects:
+  - kind: ServiceAccount
+    name: patio-runtime
+    namespace: REPLACE_ME
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: patio-runtime-roleinstance

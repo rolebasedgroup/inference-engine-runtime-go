@@ -1,0 +1,9 @@
+event_callbacks:
+  start: []
+  hook:
+    - signal: "example.com/update-block=true"
+      callback: prepare-update
+    - signal: "example.com/ready-notify=true"
+      callback: activate
+  end:
+    - cleanup

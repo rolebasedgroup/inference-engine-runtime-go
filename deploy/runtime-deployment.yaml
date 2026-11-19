@@ -1,0 +1,78 @@
+# Experimental single-RoleInstance runtime deployment. Exactly one logical
+# executor must own each signal; this example uses a single replica with
+# Recreate, which is not a distributed mutual-exclusion guarantee.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: patio-events
+  namespace: REPLACE_ME
+data:
+  events.yaml: |
+    event_callbacks:
+      start: []
+      hook:
+        - signal: "example.com/update-block=true"
+          callback: noop
+      end: []
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patio-runtime
+  namespace: REPLACE_ME
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: patio-runtime
+  template:
+    metadata:
+      labels:
+        app: patio-runtime
+    spec:
+      serviceAccountName: patio-runtime
+      containers:
+        - name: patio
+          image: REPLACE_ME/patio:latest
+          args:
+            - run
+            - --config=/etc/patio/events.yaml
+            - --source=rbg
+            - --ri-namespace=REPLACE_ME
+            - --ri-name=REPLACE_ME_RI_NAME
+            - --label-file=/etc/podinfo/labels
+            - --label-poll-interval=1s
+          ports:
+            - name: diagnostics
+              containerPort: 9090
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: diagnostics
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: diagnostics
+          volumeMounts:
+            - name: events
+              mountPath: /etc/patio
+              readOnly: true
+            - name: podinfo
+              mountPath: /etc/podinfo
+              readOnly: true
+      volumes:
+        - name: events
+          configMap:
+            name: patio-events
+        # The RoleInstance controller mirrors signalLabels keys onto member
+        # Pods; downwardAPI projects the Pod labels into a file. The runtime
+        # polls this file as its wake-up mechanism instead of watching the
+        # RoleInstance, which keeps RBAC down to get+patch.
+        - name: podinfo
+          downwardAPI:
+            items:
+              - path: labels
+                fieldRef:
+                  fieldPath: metadata.labels

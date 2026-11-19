@@ -1,0 +1,9 @@
+# This example binary has no signal source attached, so it uses only start
+# and end bindings. Hook bindings require patio.WithSource (for example
+# source/rbg); see the top-level examples/events.yaml for the full shape.
+event_callbacks:
+  start:
+    - prepare-update
+  hook: []
+  end:
+    - cleanup
